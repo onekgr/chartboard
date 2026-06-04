@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChartBoard</title>
+  <style>
+    :root {
+      --bg-page: #0d0d0d;
+      --bg-header: #141414;
+      --bg-cell: #1a1a1a;
+      --bg-input: #1f1f1f;
+      --border: #2a2a2a;
+      --text: #e0e0e0;
+      --text-muted: #666;
+      --accent: #2962ff;
+      --accent-hover: #1e4bd8;
+      --danger: #c0392b;
+      --green: #4caf50;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg-page);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 13px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    header {
+      background: var(--bg-header);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .app-title {
+      font-weight: 800;
+      font-size: 16px;
+      white-space: nowrap;
+      background: linear-gradient(90deg, #fff 0%, #2962ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.4px;
+    }
+
+    header input[type="text"],
+    header select {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      padding: 5px 8px;
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    header input[type="text"]:focus,
+    header select:focus { border-color: var(--accent); }
+
+    #ticker-filter { width: 130px; }
+
+    header select {
+      cursor: pointer;
+      appearance: none;
+      padding-right: 20px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23666'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 6px center;
+    }
+
+    .add-ticker { display: flex; gap: 4px; align-items: center; }
+    #new-ticker-input { width: 120px; text-transform: uppercase; }
+    #new-ticker-input::placeholder { text-transform: none; }
+
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 5px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    button:hover { background: var(--accent-hover); }
+
+    .sep { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
+
+    #ticker-count { color: var(--text-muted); font-size: 11px; white-space: nowrap; }
+
+    /* ── File persistence ── */
+    .coffee-btn {
+      margin-left: auto;
+      background: #FFDD00;
+      color: #000;
+      border: none;
+      border-radius: 4px;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+      transition: opacity 0.15s;
+    }
+    .coffee-btn:hover { opacity: 0.85; }
+
+    main { flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #333 transparent; }
+    main::-webkit-scrollbar { width: 6px; }
+    main::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+
+    #chart-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(var(--min-cell-w, 220px), 1fr));
+      grid-auto-rows: 180px; /* must match GRID_ROW_H */
+      gap: 6px;              /* must match GRID_GAP */
+      padding: 8px;
+    }
+
+    /* ── Consent overlay ── */
+    #consent-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.82);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 16px;
+    }
+    #consent-overlay.hidden { display: none; }
+
+    #consent-modal {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 10px;
+      padding: 32px 28px 24px;
+      max-width: 440px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .consent-logo {
+      font-size: 28px;
+      text-align: center;
+    }
+
+    .consent-title {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--text);
+      text-align: center;
+      letter-spacing: -0.3px;
+    }
+    .consent-title .highlight {
+      color: var(--accent);
+    }
+
+    .consent-body {
+      font-size: 13px;
+      color: #aaa;
+      line-height: 1.6;
+    }
+
+    .consent-body ul {
+      margin: 10px 0 10px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .consent-body li { color: var(--text); }
+
+    .consent-note {
+      font-size: 11px;
+      color: #555;
+      text-align: center;
+    }
+
+    .consent-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    #consent-accept {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    #consent-accept:hover { background: var(--accent-hover); }
+
+    #consent-decline {
+      background: transparent;
+      border: 1px solid #333;
+      color: #555;
+      border-radius: 6px;
+      padding: 8px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    #consent-decline:hover { color: #aaa; border-color: #555; }
+
+    /* ── Chart cell ── */
+    .chart-cell {
+      min-width: 0;
+      background: var(--bg-cell);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+      transition: opacity 0.15s;
+      align-self: start;
+      outline: 1px solid var(--border);
+    }
+    .chart-cell.dragging { opacity: 0.3; }
+    .chart-cell.drag-over { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+    #chart-grid.dragging-active .chart-cell::after {
+      content: ''; position: absolute; inset: 0; z-index: 8;
+    }
+
+    /* ── Pencil edit button ── */
+    .cell-edit-btn {
+      position: absolute;
+      top: 6px; right: 6px;
+      z-index: 11;
+      background: rgba(0,0,0,0.55);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.5);
+      border-radius: 4px;
+      width: 26px; height: 26px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.15s, background 0.12s, color 0.12s;
+      padding: 0;
+      flex-shrink: 0;
+    }
+    .chart-cell:hover .cell-edit-btn,
+    .chart-cell.edit-open .cell-edit-btn { opacity: 1; }
+    .cell-edit-btn:hover,
+    .chart-cell.edit-open .cell-edit-btn {
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+      border-color: rgba(255,255,255,0.25);
+    }
+
+    /* ── Edit popover ── */
+    .cell-popover {
+      position: absolute;
+      top: 36px; right: 6px;
+      z-index: 20;
+      background: #212121;
+      border: 1px solid #383838;
+      border-radius: 7px;
+      padding: 10px;
+      width: 156px;
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+    }
+    .cell-popover.open { display: flex; }
+
+    .popover-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      padding: 0 2px 2px;
+    }
+
+    .cell-size-group { display: flex; gap: 4px; }
+    .cell-size-btn {
+      flex: 1;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.5);
+      font-size: 11px; font-weight: 700;
+      padding: 4px 0;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.1s, color 0.1s, border-color 0.1s;
+    }
+    .cell-size-btn:hover { background: rgba(255,255,255,0.13); color: #fff; border-color: rgba(255,255,255,0.25); }
+    .cell-size-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+    .popover-divider { height: 1px; background: #2e2e2e; margin: 3px 0; }
+
+    .popover-action {
+      background: none; border: none;
+      color: #ccc; font-size: 12px;
+      padding: 7px 8px;
+      border-radius: 5px;
+      cursor: pointer;
+      text-align: left;
+      display: flex; align-items: center; gap: 8px;
+      transition: background 0.1s, color 0.1s;
+      width: 100%;
+    }
+    .popover-action:hover { background: rgba(255,255,255,0.07); color: #fff; }
+    .popover-action.danger { color: #e57373; }
+    .popover-action.danger:hover { background: rgba(192,57,43,0.2); color: #ef9a9a; }
+
+    /* ── Move mode ── */
+    .chart-cell.move-mode { outline: 2px solid var(--accent) !important; }
+    .chart-cell.move-mode::before {
+      content: '';
+      position: absolute; inset: 0; z-index: 9;
+      cursor: grab;
+      background: rgba(41,98,255,0.06);
+    }
+    .chart-cell.move-mode::before:active { cursor: grabbing; }
+
+    /* ── Empty state ── */
+    .empty-state {
+      grid-column: 1 / -1;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      height: 200px; color: var(--text-muted); gap: 8px;
+    }
+    .empty-state span { font-size: 28px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="app-title">ChartBoard</div>
+  <div class="sep"></div>
+
+  <input id="ticker-filter" type="text" placeholder="Filter tickers...">
+
+  <select id="timeframe-select">
+    <option value="1D">1D</option>
+    <option value="5D">5D</option>
+    <option value="1M" selected>1M</option>
+    <option value="3M">3M</option>
+    <option value="6M">6M</option>
+    <option value="12M">1Y</option>
+    <option value="60M">5Y</option>
+    <option value="ALL">All</option>
+  </select>
+
+  <div class="add-ticker">
+    <input id="new-ticker-input" type="text" placeholder="TSLA or NYSE:NOW">
+    <button id="add-ticker-btn">+ Add</button>
+  </div>
+
+  <span id="ticker-count"></span>
+  <!-- ☕ Replace the href with your Buy Me a Coffee / Ko-fi / PayPal link -->
+  <a class="coffee-btn" href="https://buymeacoffee.com/TU_USUARIO" target="_blank" rel="noopener">
+    ☕ Buy me a coffee
+  </a>
+</header>
+
+<main>
+  <div id="chart-grid"></div>
+</main>
+
+<div id="consent-overlay" class="hidden">
+  <div id="consent-modal">
+    <div class="consent-logo">📈</div>
+    <div class="consent-title">We use <span class="highlight">cookies</span></div>
+    <div class="consent-body">
+      This site uses <strong>cookies</strong> to remember your preferences
+      across sessions. Specifically, we store:
+      <ul>
+        <li>Your watchlist symbols</li>
+        <li>Chart sizes (S / M / L) per symbol</li>
+        <li>The order you arranged your charts</li>
+      </ul>
+      No personal data is collected. Cookies stay in your browser only —
+      nothing is sent to any server, and there is no tracking or advertising.
+    </div>
+    <div class="consent-note">
+      You can withdraw consent at any time by clearing your browser cookies for this site.
+    </div>
+    <div class="consent-actions">
+      <button id="consent-accept">Accept &amp; continue</button>
+      <button id="consent-decline">Decline — don't save my preferences</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── Default tickers — used only when no saved watchlist exists ───────────
+  const DEFAULT_TICKERS = [
+    "NASDAQ:NVDA", "NASDAQ:AAPL", "NASDAQ:MSFT", "NASDAQ:GOOGL",
+    "NASDAQ:META", "NASDAQ:AMZN", "NASDAQ:TSLA", "NASDAQ:AMD",
+    "NASDAQ:AVGO", "NASDAQ:MU",   "NYSE:NOW",    "NYSE:JPM",
+    "NYSE:V",      "SP:SPX",      "NYSE:XOM",    "NYSE:BRK.B",
+    "NYSE:JNJ",    "NYSE:UNH",    "NASDAQ:NFLX", "NASDAQ:COST",
+    "NYSE:MA",     "NASDAQ:ADBE", "AMEX:ARKQ",  "NYSE:VEEV",
+  ];
+  // ────────────────────────────────────────────────────────────────────────
+
+  const GRID_ROW_H = 180;
+  const GRID_GAP   = 6;
+  function spanHeight(rows) { return rows * GRID_ROW_H + (rows - 1) * GRID_GAP - 1; }
+
+  const SIZE_CONFIG = {
+    S: { cellHeight: spanHeight(1), minCellW: '220px', colSpan: 1, rowSpan: 1 },
+    M: { cellHeight: spanHeight(2), minCellW: '220px', colSpan: 2, rowSpan: 2 },
+    L: { cellHeight: spanHeight(3), minCellW: '380px', colSpan: 2, rowSpan: 3 },
+  };
+
+  const state = { dateRange: '1M', filter: '', size: 'S' };
+  let displayTickers = [...DEFAULT_TICKERS];
+  let tickerSizes = { "NASDAQ:NVDA": "M" }; // per-symbol overrides: { "NASDAQ:NVDA": "L", ... }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // WIDGET BUILDERS
+  // ════════════════════════════════════════════════════════════════════════
+
+  function buildScript(src, config) {
+    const s = document.createElement('script');
+    s.type = 'text/javascript';
+    s.src = src;
+    s.async = true;
+    s.textContent = JSON.stringify(config);
+    return s;
+  }
+
+  function widgetS(symbol) {
+    return buildScript(
+      'https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js',
+      {
+        symbol, width: '100%', height: '100%',
+        colorTheme: 'dark', dateRange: state.dateRange,
+        autosize: true, isTransparent: false, locale: 'en',
+        trendLineColor: 'rgba(41, 98, 255, 1)',
+        underLineColor: 'rgba(41, 98, 255, 0.15)',
+        underLineBottomColor: 'rgba(41, 98, 255, 0)',
+        largeChartUrl: '',
+      }
+    );
+  }
+
+  function widgetM(symbol) {
+    const name = symbol.split(':')[1] || symbol;
+    return buildScript(
+      'https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js',
+      {
+        symbols: [[name, symbol + '|1D']],
+        chartOnly: false,
+        width: '100%', height: '100%',
+        locale: 'en', colorTheme: 'dark', autosize: true,
+        showVolume: true, showMA: false,
+        hideDateRanges: false, hideMarketStatus: false, hideSymbolLogo: false,
+        scalePosition: 'right', scaleMode: 'Normal',
+        fontFamily: '-apple-system, BlinkMacSystemFont, Trebuchet MS, Roboto, Ubuntu, sans-serif',
+        fontSize: '10', noTimeScale: false, valuesTracking: '1',
+        changeMode: 'price-and-percent', chartType: 'area',
+        lineWidth: 2, lineType: 0,
+        dateRanges: ['1d|1', '1w|15', '1m|30', '3m|60', '12m|1D', '60m|1W', 'all|1M'],
+      }
+    );
+  }
+
+  function widgetL(symbol) {
+    return buildScript(
+      'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js',
+      {
+        autosize: true, symbol,
+        interval: 'D', timezone: 'America/New_York',
+        theme: 'dark', style: '4', locale: 'en',
+        allow_symbol_change: false, calendar: false,
+        hide_top_toolbar: false, hide_legend: false,
+        save_image: false, hide_volume: false,
+        support_host: 'https://www.tradingview.com',
+      }
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // CELL FACTORY
+  // ════════════════════════════════════════════════════════════════════════
+
+  function cellSize(symbol) {
+    return tickerSizes[symbol] || state.size;
+  }
+
+  function closeAllPopovers() {
+    document.querySelectorAll('.cell-popover.open').forEach(p => {
+      p.classList.remove('open');
+      p.closest('.chart-cell')?.classList.remove('edit-open');
+    });
+  }
+
+  function createWidgetCell(symbol) {
+    const size = cellSize(symbol);
+    const cfg  = SIZE_CONFIG[size];
+
+    const cell = document.createElement('div');
+    cell.className = 'chart-cell';
+    cell.dataset.symbol = symbol;
+    cell.dataset.size   = size;
+    cell.style.height   = cfg.cellHeight + 'px';
+    if (cfg.colSpan > 1) cell.style.gridColumn = `span ${cfg.colSpan}`;
+    if (cfg.rowSpan > 1) cell.style.gridRow    = `span ${cfg.rowSpan}`;
+
+    // ── Pencil button ──
+    const editBtn = document.createElement('button');
+    editBtn.className = 'cell-edit-btn';
+    editBtn.title = 'Edit';
+    editBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>`;
+
+    // ── Popover ──
+    const popover = document.createElement('div');
+    popover.className = 'cell-popover';
+
+    // Size section
+    const sizeLabel = document.createElement('div');
+    sizeLabel.className = 'popover-label';
+    sizeLabel.textContent = 'Size';
+    popover.appendChild(sizeLabel);
+
+    const sizeGroup = document.createElement('div');
+    sizeGroup.className = 'cell-size-group';
+    ['S', 'M', 'L'].forEach(s => {
+      const btn = document.createElement('button');
+      btn.className = 'cell-size-btn' + (s === size ? ' active' : '');
+      btn.textContent = s;
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        closeAllPopovers();
+        if (s !== cell.dataset.size) resizeCell(cell, s);
+      });
+      sizeGroup.appendChild(btn);
+    });
+    popover.appendChild(sizeGroup);
+
+    popover.appendChild(Object.assign(document.createElement('div'), { className: 'popover-divider' }));
+
+    // Move action
+    const moveBtn = document.createElement('button');
+    moveBtn.className = 'popover-action';
+    moveBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/></svg> Move`;
+    moveBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      closeAllPopovers();
+      enterMoveMode(cell);
+    });
+    popover.appendChild(moveBtn);
+
+    popover.appendChild(Object.assign(document.createElement('div'), { className: 'popover-divider' }));
+
+    // Remove action
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'popover-action danger';
+    removeBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg> Remove`;
+    removeBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      closeAllPopovers();
+      removeTicker(cell);
+    });
+    popover.appendChild(removeBtn);
+
+    // Toggle popover on pencil click
+    editBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      const isOpen = popover.classList.contains('open');
+      closeAllPopovers();
+      if (!isOpen) {
+        popover.classList.add('open');
+        cell.classList.add('edit-open');
+      }
+    });
+
+    cell.appendChild(editBtn);
+    cell.appendChild(popover);
+
+    // ── TradingView widget ──
+    const wrapper = document.createElement('div');
+    wrapper.className = 'tradingview-widget-container';
+    wrapper.style.cssText = 'height:100%;width:100%';
+    const inner = document.createElement('div');
+    inner.className = 'tradingview-widget-container__widget';
+    inner.style.cssText = 'height:100%;width:100%';
+    wrapper.appendChild(inner);
+    wrapper.appendChild({ S: widgetS, M: widgetM, L: widgetL }[size](symbol));
+    cell.appendChild(wrapper);
+
+    return cell;
+  }
+
+  function resizeCell(cell, newSize) {
+    const symbol = cell.dataset.symbol;
+    if (newSize === state.size) {
+      delete tickerSizes[symbol]; // back to global default — no need to store it
+    } else {
+      tickerSizes[symbol] = newSize;
+    }
+    cell.replaceWith(createWidgetCell(symbol));
+    autosave();
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // GRID
+  // ════════════════════════════════════════════════════════════════════════
+
+  function applyGridMinWidth() {
+    document.getElementById('chart-grid')
+      .style.setProperty('--min-cell-w', SIZE_CONFIG[state.size].minCellW);
+    const tf = document.getElementById('timeframe-select');
+    tf.style.display = state.size === 'S' ? '' : 'none';
+  }
+
+  function renderGrid(tickers) {
+    applyGridMinWidth();
+    const grid = document.getElementById('chart-grid');
+    grid.innerHTML = '';
+    if (tickers.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.innerHTML = '<span>&#128235;</span><p>No tickers match.</p>';
+      grid.appendChild(empty);
+      document.getElementById('ticker-count').textContent = '0 charts';
+      return;
+    }
+    tickers.forEach(s => grid.appendChild(createWidgetCell(s)));
+    updateCount();
+  }
+
+  function updateCount() {
+    const n = document.querySelectorAll('#chart-grid .chart-cell').length;
+    document.getElementById('ticker-count').textContent = `${n} chart${n !== 1 ? 's' : ''}`;
+  }
+
+  function getFilteredTickers() {
+    return state.filter ? displayTickers.filter(t => t.includes(state.filter)) : displayTickers;
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // MUTATIONS
+  // ════════════════════════════════════════════════════════════════════════
+
+  function addTicker(raw) {
+    let symbol = raw.trim().toUpperCase();
+    if (!symbol) return;
+    if (!symbol.includes(':')) symbol = 'NASDAQ:' + symbol;
+    if (displayTickers.includes(symbol)) {
+      const input = document.getElementById('new-ticker-input');
+      input.style.borderColor = 'var(--danger)';
+      setTimeout(() => { input.style.borderColor = ''; }, 800);
+      return;
+    }
+    displayTickers.push(symbol);
+    const grid = document.getElementById('chart-grid');
+    if (grid.querySelector('.empty-state')) grid.innerHTML = '';
+    grid.appendChild(createWidgetCell(symbol));
+    updateCount();
+    autosave();
+  }
+
+  function removeTicker(cell) {
+    const symbol = cell.dataset.symbol;
+    displayTickers = displayTickers.filter(t => t !== symbol);
+    delete tickerSizes[symbol];
+    cell.remove();
+    const grid = document.getElementById('chart-grid');
+    if (!grid.querySelector('.chart-cell')) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.innerHTML = '<span>&#128235;</span><p>No charts. Add a ticker above.</p>';
+      grid.appendChild(empty);
+    }
+    updateCount();
+    autosave();
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // DRAG AND DROP
+  // ════════════════════════════════════════════════════════════════════════
+
+  let dragSrc      = null;
+  let dragModeCell = null;
+
+  function enterMoveMode(cell) {
+    if (dragModeCell) exitMoveMode(dragModeCell);
+    dragModeCell = cell;
+    cell.classList.add('move-mode');
+    cell.draggable = true;
+  }
+
+  function exitMoveMode(cell) {
+    if (!cell) return;
+    cell.classList.remove('move-mode');
+    cell.draggable = false;
+    if (dragModeCell === cell) dragModeCell = null;
+  }
+
+  function initDragAndDrop() {
+    const grid = document.getElementById('chart-grid');
+
+    grid.addEventListener('dragstart', e => {
+      const cell = e.target.closest('.chart-cell');
+      if (!cell || !cell.draggable) return;
+      dragSrc = cell;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', cell.dataset.symbol);
+      e.dataTransfer.setDragImage(cell, 30, 20);
+      setTimeout(() => {
+        if (dragSrc) dragSrc.classList.add('dragging');
+        grid.classList.add('dragging-active');
+      }, 0);
+    });
+
+    grid.addEventListener('dragend', () => {
+      if (dragSrc) { dragSrc.classList.remove('dragging'); exitMoveMode(dragSrc); }
+      grid.classList.remove('dragging-active');
+      grid.querySelectorAll('.drag-over').forEach(c => c.classList.remove('drag-over'));
+      dragSrc = null;
+    });
+
+    grid.addEventListener('dragover', e => {
+      if (!dragSrc) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const target = e.target.closest('.chart-cell');
+      if (!target || target === dragSrc) return;
+      grid.querySelectorAll('.drag-over').forEach(c => c.classList.remove('drag-over'));
+      target.classList.add('drag-over');
+    });
+
+    grid.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!dragSrc) return;
+      const target = e.target.closest('.chart-cell');
+      if (!target || target === dragSrc) return;
+      target.classList.remove('drag-over');
+      const cells = [...grid.querySelectorAll('.chart-cell')];
+      const fromIdx = cells.indexOf(dragSrc);
+      const toIdx   = cells.indexOf(target);
+      if (fromIdx < toIdx) target.after(dragSrc);
+      else target.before(dragSrc);
+      displayTickers = [...grid.querySelectorAll('.chart-cell')].map(c => c.dataset.symbol);
+      autosave();
+    });
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // PERSISTENCE — localStorage, fully automatic
+  // ════════════════════════════════════════════════════════════════════════
+
+  // ── Consent ───────────────────────────────────────────────────────────
+  let hasConsent = localStorage.getItem('cv-consent') === 'true';
+
+  function showConsentIfNeeded() {
+    if (hasConsent) return;
+    document.getElementById('consent-overlay').classList.remove('hidden');
+  }
+
+  document.getElementById('consent-accept').addEventListener('click', () => {
+    hasConsent = true;
+    localStorage.setItem('cv-consent', 'true');
+    document.getElementById('consent-overlay').classList.add('hidden');
+    autosave(); // save current state now that consent is granted
+  });
+
+  document.getElementById('consent-decline').addEventListener('click', () => {
+    hasConsent = false;
+    document.getElementById('consent-overlay').classList.add('hidden');
+  });
+
+  // ── Persistence ───────────────────────────────────────────────────────
+  function autosave() {
+    if (!hasConsent) return;
+    localStorage.setItem('cv-state', JSON.stringify(
+      { tickers: displayTickers, size: state.size, tickerSizes }
+    ));
+  }
+
+  function initPersistence() {
+    if (!hasConsent) return;
+    const saved = localStorage.getItem('cv-state');
+    if (!saved) return;
+    try {
+      const data = JSON.parse(saved);
+      if (Array.isArray(data.tickers) && data.tickers.length) displayTickers = data.tickers;
+      if (data.tickerSizes && typeof data.tickerSizes === 'object') tickerSizes = data.tickerSizes;
+      if (data.size && SIZE_CONFIG[data.size]) state.size = data.size;
+    } catch {}
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // EVENT LISTENERS
+  // ════════════════════════════════════════════════════════════════════════
+
+  document.getElementById('timeframe-select').addEventListener('change', e => {
+    state.dateRange = e.target.value;
+    renderGrid(getFilteredTickers());
+  });
+
+  document.getElementById('ticker-filter').addEventListener('input', e => {
+    state.filter = e.target.value.trim().toUpperCase();
+    renderGrid(getFilteredTickers());
+  });
+
+  document.getElementById('add-ticker-btn').addEventListener('click', () => {
+    const input = document.getElementById('new-ticker-input');
+    addTicker(input.value);
+    input.value = '';
+    input.focus();
+  });
+
+  document.getElementById('new-ticker-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { addTicker(e.target.value); e.target.value = ''; }
+  });
+
+  // ════════════════════════════════════════════════════════════════════════
+  // INIT
+  // ════════════════════════════════════════════════════════════════════════
+
+  // Close popovers when clicking outside a cell
+  document.addEventListener('click', closeAllPopovers);
+
+  // Escape cancels move mode
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      closeAllPopovers();
+      if (dragModeCell) exitMoveMode(dragModeCell);
+    }
+  });
+
+  initDragAndDrop();
+  initPersistence();
+  renderGrid(displayTickers);
+  showConsentIfNeeded();
+</script>
+
+</body>
+</html>
