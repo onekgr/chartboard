@@ -47,10 +47,7 @@
       font-weight: 800;
       font-size: 16px;
       white-space: nowrap;
-      background: linear-gradient(90deg, #fff 0%, #2962ff 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      color: #fff;
       letter-spacing: -0.4px;
     }
 
@@ -350,7 +347,7 @@
 <body>
 
 <header>
-  <div class="app-title">ChartBoard</div>
+  <div class="app-title">Chart<span style="-webkit-text-fill-color:var(--accent);color:var(--accent)">Board</span></div>
   <div class="sep"></div>
 
   <input id="ticker-filter" type="text" placeholder="Filter tickers...">
