@@ -352,17 +352,6 @@
 
   <input id="ticker-filter" type="text" placeholder="Filter tickers...">
 
-  <select id="timeframe-select">
-    <option value="1D">1D</option>
-    <option value="5D">5D</option>
-    <option value="1M" selected>1M</option>
-    <option value="3M">3M</option>
-    <option value="6M">6M</option>
-    <option value="12M">1Y</option>
-    <option value="60M">5Y</option>
-    <option value="ALL">All</option>
-  </select>
-
   <div class="add-ticker">
     <input id="new-ticker-input" type="text" placeholder="TSLA or NYSE:NOW">
     <button id="add-ticker-btn">+ Add</button>
@@ -624,8 +613,6 @@
   function applyGridMinWidth() {
     document.getElementById('chart-grid')
       .style.setProperty('--min-cell-w', SIZE_CONFIG[state.size].minCellW);
-    const tf = document.getElementById('timeframe-select');
-    tf.style.display = state.size === 'S' ? '' : 'none';
   }
 
   function renderGrid(tickers) {
@@ -808,11 +795,6 @@
   // ════════════════════════════════════════════════════════════════════════
   // EVENT LISTENERS
   // ════════════════════════════════════════════════════════════════════════
-
-  document.getElementById('timeframe-select').addEventListener('change', e => {
-    state.dateRange = e.target.value;
-    renderGrid(getFilteredTickers());
-  });
 
   document.getElementById('ticker-filter').addEventListener('input', e => {
     state.filter = e.target.value.trim().toUpperCase();
