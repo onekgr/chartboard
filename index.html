@@ -658,14 +658,29 @@
 </div>
 
 <script>
-  // ── Default tickers — used only when no saved watchlist exists ───────────
-  const DEFAULT_TICKERS = [
-    "NASDAQ:NVDA", "NASDAQ:AAPL", "NASDAQ:MSFT", "NASDAQ:GOOGL",
-    "NASDAQ:META", "NASDAQ:AMZN", "NASDAQ:TSLA", "NASDAQ:AMD",
-    "NASDAQ:AVGO", "NASDAQ:MU",   "NYSE:NOW",    "NYSE:JPM",
-    "NYSE:V",      "SP:SPX",      "NYSE:XOM",    "NYSE:BRK.B",
-    "NYSE:JNJ",    "NYSE:UNH",    "NASDAQ:NFLX", "NASDAQ:COST",
-    "NYSE:MA",     "NASDAQ:ADBE", "AMEX:ARKQ",  "NYSE:VEEV",
+  // ── Default layout — used only when no saved watchlist exists ────────────
+  const DEFAULT_ENTRIES = [
+    { symbol: "NASDAQ:NVDA",  type: "M", cols: 2, rows: 2 },
+    { symbol: "NASDAQ:MU",    type: "S", cols: 2, rows: 1 },
+    { symbol: "AMEX:ARKQ",    type: "S", cols: 2, rows: 1 },
+    { symbol: "NYSE:NOW",     type: "S", cols: 2, rows: 1 },
+    { symbol: "NASDAQ:AAPL",  type: "S", cols: 2, rows: 1 },
+    { symbol: "NASDAQ:MSFT",  type: "S", cols: 1, rows: 1 },
+    { symbol: "NASDAQ:GOOGL", type: "S", cols: 1, rows: 1 },
+    { symbol: "NASDAQ:META",  type: "S", cols: 1, rows: 1 },
+    { symbol: "NASDAQ:AMZN",  type: "S", cols: 1, rows: 1 },
+    { symbol: "NASDAQ:TSLA",  type: "S", cols: 1, rows: 1 },
+    { symbol: "NASDAQ:AMD",   type: "S", cols: 1, rows: 1 },
+    { symbol: "NASDAQ:AVGO",  type: "S", cols: 1, rows: 1 },
+    { symbol: "NYSE:JPM",     type: "S", cols: 1, rows: 1 },
+    { symbol: "NYSE:V",       type: "S", cols: 1, rows: 1 },
+    { symbol: "NYSE:JNJ",     type: "S", cols: 1, rows: 1 },
+    { symbol: "NYSE:UNH",     type: "S", cols: 1, rows: 1 },
+    { symbol: "NASDAQ:NFLX",  type: "S", cols: 1, rows: 1 },
+    { symbol: "NASDAQ:COST",  type: "S", cols: 1, rows: 1 },
+    { symbol: "NYSE:MA",      type: "S", cols: 1, rows: 1 },
+    { symbol: "NASDAQ:ADBE",  type: "S", cols: 1, rows: 1 },
+    { symbol: "NYSE:VEEV",    type: "S", cols: 1, rows: 1 },
   ];
   // ────────────────────────────────────────────────────────────────────────
 
@@ -700,7 +715,7 @@
     return { id: makeId(), symbol, type, cols, rows };
   }
 
-  let displayTickers = DEFAULT_TICKERS.map(s => makeEntry(s, DEFAULT_TYPES[s] || 'S'));
+  let displayTickers = DEFAULT_ENTRIES.map(e => ({ id: makeId(), ...e }));
 
   // ════════════════════════════════════════════════════════════════════════
   // WIDGET BUILDERS
