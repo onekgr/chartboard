@@ -807,18 +807,12 @@
     if (!symbol.includes(':')) symbol = 'NASDAQ:' + symbol;
     if (displayTickers.includes(symbol)) {
       const input = document.getElementById('new-ticker-input');
-      input.value = symbol;
       input.style.borderColor = 'var(--danger)';
       input.style.color = 'var(--danger)';
-      input.title = 'Already in your watchlist';
-      setTimeout(() => {
-        input.style.borderColor = '';
-        input.style.color = '';
-        input.title = '';
-        input.value = '';
-      }, 1500);
-      return;
+      setTimeout(() => { input.style.borderColor = ''; input.style.color = ''; }, 1500);
+      return; // leave input value intact so user can see what was rejected
     }
+    document.getElementById('new-ticker-input').value = '';
     showWidgetPicker(symbol);
   }
 
@@ -962,14 +956,11 @@
   });
 
   document.getElementById('add-ticker-btn').addEventListener('click', () => {
-    const input = document.getElementById('new-ticker-input');
-    addTicker(input.value);
-    input.value = '';
-    input.focus();
+    addTicker(document.getElementById('new-ticker-input').value);
   });
 
   document.getElementById('new-ticker-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') { addTicker(e.target.value); e.target.value = ''; }
+    if (e.key === 'Enter') addTicker(e.target.value);
   });
 
   // ════════════════════════════════════════════════════════════════════════
