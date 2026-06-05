@@ -470,6 +470,7 @@
       box-shadow: 0 6px 20px rgba(0,0,0,0.6);
     }
     .cell-popover.open { display: flex; }
+    .cell-popover.above { top: auto; bottom: 36px; }
 
     .popover-label {
       font-size: 10px;
@@ -911,6 +912,11 @@
       if (!isOpen) {
         popover.classList.add('open');
         cell.classList.add('edit-open');
+        // Flip upward if it overflows the viewport bottom
+        requestAnimationFrame(() => {
+          const rect = popover.getBoundingClientRect();
+          popover.classList.toggle('above', rect.bottom > window.innerHeight - 8);
+        });
       }
     });
 
