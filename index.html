@@ -134,12 +134,65 @@
     }
     .coffee-btn:hover { opacity: 0.85; }
 
-    #ticker-tape {
-      height: 85px;
-      flex-shrink: 0;
-      border-bottom: 1px solid var(--border);
-      overflow: hidden;
+    /* ── Widget picker modal ── */
+    #widget-picker-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.75);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9998; padding: 16px;
     }
+    #widget-picker-overlay.hidden { display: none; }
+
+    #widget-picker-modal {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 10px;
+      padding: 24px;
+      width: 100%; max-width: 380px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+
+    .picker-header { display: flex; flex-direction: column; gap: 4px; }
+    .picker-title  { font-size: 15px; font-weight: 700; color: var(--text); }
+    .picker-symbol { font-size: 12px; color: var(--accent); font-weight: 600; }
+
+    .picker-options { display: flex; flex-direction: column; gap: 6px; }
+
+    .picker-option {
+      background: #212121;
+      border: 1px solid #2e2e2e;
+      border-radius: 7px;
+      padding: 12px 14px;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 12px;
+      transition: border-color 0.15s, background 0.15s;
+      text-align: left; width: 100%;
+      color: var(--text);
+    }
+    .picker-option:hover { border-color: var(--accent); background: #262626; }
+
+    .picker-option-badge {
+      background: var(--accent);
+      color: #fff;
+      font-size: 11px; font-weight: 800;
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .picker-option-badge.badge-f { background: #00897b; }
+
+    .picker-option-info { display: flex; flex-direction: column; gap: 2px; }
+    .picker-option-name { font-size: 13px; font-weight: 600; }
+    .picker-option-desc { font-size: 11px; color: var(--text-muted); }
+
+    .picker-cancel {
+      background: none; border: 1px solid #2e2e2e;
+      color: var(--text-muted); border-radius: 6px;
+      padding: 8px; font-size: 12px; cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .picker-cancel:hover { color: var(--text); border-color: #555; }
 
     main { flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #333 transparent; }
     main::-webkit-scrollbar { width: 6px; }
@@ -388,47 +441,14 @@
   </a>
 </header>
 
-<div id="ticker-tape">
-  <div class="tradingview-widget-container" style="width:100%;height:100%">
-    <div class="tradingview-widget-container__widget" style="width:100%;height:100%"></div>
-    <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js" async>
-    {
-      "symbols": [
-        { "proName": "NASDAQ:NVDA",     "title": "NVIDIA"      },
-        { "proName": "NASDAQ:AAPL",     "title": "Apple"       },
-        { "proName": "NASDAQ:MSFT",     "title": "Microsoft"   },
-        { "proName": "NASDAQ:GOOGL",    "title": "Alphabet"    },
-        { "proName": "NASDAQ:META",     "title": "Meta"        },
-        { "proName": "NASDAQ:AMZN",     "title": "Amazon"      },
-        { "proName": "NASDAQ:TSLA",     "title": "Tesla"       },
-        { "proName": "NASDAQ:AMD",      "title": "AMD"         },
-        { "proName": "NASDAQ:AVGO",     "title": "Broadcom"    },
-        { "proName": "NASDAQ:NFLX",     "title": "Netflix"     },
-        { "proName": "NASDAQ:COST",     "title": "Costco"      },
-        { "proName": "NASDAQ:ADBE",     "title": "Adobe"       },
-        { "proName": "NASDAQ:MU",       "title": "Micron"      },
-        { "proName": "NYSE:NOW",        "title": "ServiceNow"  },
-        { "proName": "NYSE:VEEV",       "title": "Veeva"       },
-        { "proName": "NYSE:JPM",        "title": "JPMorgan"    },
-        { "proName": "NYSE:V",          "title": "Visa"        },
-        { "proName": "NYSE:MA",         "title": "Mastercard"  },
-        { "proName": "NYSE:XOM",        "title": "ExxonMobil"  },
-        { "proName": "NYSE:BRK.B",      "title": "Berkshire"   },
-        { "proName": "AMEX:ARKQ",       "title": "ARKQ"        },
-        { "proName": "NASDAQ:LRCX",     "title": "Lam Research" },
-        { "proName": "NASDAQ:MRVL",     "title": "Marvell"      },
-        { "proName": "NASDAQ:KLAC",     "title": "KLA Corp"     },
-        { "proName": "NYSE:OKLO",       "title": "Oklo"         },
-        { "proName": "BITSTAMP:BTCUSD", "title": "Bitcoin"      },
-        { "proName": "BITSTAMP:ETHUSD", "title": "Ethereum"     }
-      ],
-      "showSymbolLogo": true,
-      "isTransparent": false,
-      "displayMode": "compact",
-      "colorTheme": "dark",
-      "locale": "en"
-    }
-    </script>
+<div id="widget-picker-overlay" class="hidden">
+  <div id="widget-picker-modal">
+    <div class="picker-header">
+      <div class="picker-title">Add widget</div>
+      <div class="picker-symbol" id="picker-symbol-label"></div>
+    </div>
+    <div class="picker-options" id="picker-options"></div>
+    <button class="picker-cancel" id="picker-cancel">Cancel</button>
   </div>
 </div>
 
@@ -481,7 +501,15 @@
     S: { cellHeight: spanHeight(1), minCellW: '220px', colSpan: 1, rowSpan: 1 },
     M: { cellHeight: spanHeight(2), minCellW: '220px', colSpan: 2, rowSpan: 2 },
     L: { cellHeight: spanHeight(3), minCellW: '380px', colSpan: 2, rowSpan: 3 },
+    F: { cellHeight: spanHeight(3), minCellW: '220px', colSpan: 2, rowSpan: 3 },
   };
+
+  const WIDGET_OPTIONS = [
+    { type: 'S', name: 'Mini Chart',      desc: 'Compact price chart with % change',        badge: 'S' },
+    { type: 'M', name: 'Symbol Overview', desc: 'Area chart with volume & range selector',   badge: 'M' },
+    { type: 'L', name: 'Advanced Chart',  desc: 'Full candlestick chart with indicators',    badge: 'L' },
+    { type: 'F', name: 'Fundamental Data',desc: 'Financials: revenue, EPS, P/E and more',    badge: 'F' },
+  ];
 
   const state = { dateRange: '1M', filter: '', size: 'S' };
   let displayTickers = [...DEFAULT_TICKERS];
@@ -532,6 +560,21 @@
         changeMode: 'price-and-percent', chartType: 'area',
         lineWidth: 2, lineType: 0,
         dateRanges: ['1d|1', '1w|15', '1m|30', '3m|60', '12m|1D', '60m|1W', 'all|1M'],
+      }
+    );
+  }
+
+  function widgetF(symbol) {
+    return buildScript(
+      'https://s3.tradingview.com/external-embedding/embed-widget-financials.js',
+      {
+        symbol,
+        colorTheme: 'dark',
+        isTransparent: false,
+        displayMode: 'regular',
+        width: '100%',
+        height: '100%',
+        locale: 'en',
       }
     );
   }
@@ -596,10 +639,11 @@
 
     const sizeGroup = document.createElement('div');
     sizeGroup.className = 'cell-size-group';
-    ['S', 'M', 'L'].forEach(s => {
+    ['S', 'M', 'L', 'F'].forEach(s => {
       const btn = document.createElement('button');
       btn.className = 'cell-size-btn' + (s === size ? ' active' : '');
       btn.textContent = s;
+      btn.title = { S: 'Mini Chart', M: 'Overview', L: 'Advanced Chart', F: 'Fundamentals' }[s];
       btn.addEventListener('click', e => {
         e.stopPropagation();
         closeAllPopovers();
@@ -657,7 +701,7 @@
     inner.className = 'tradingview-widget-container__widget';
     inner.style.cssText = 'height:100%;width:100%';
     wrapper.appendChild(inner);
-    wrapper.appendChild({ S: widgetS, M: widgetM, L: widgetL }[size](symbol));
+    wrapper.appendChild({ S: widgetS, M: widgetM, L: widgetL, F: widgetF }[size](symbol));
     cell.appendChild(wrapper);
 
     return cell;
@@ -712,6 +756,49 @@
   // MUTATIONS
   // ════════════════════════════════════════════════════════════════════════
 
+  // ── Widget picker ─────────────────────────────────────────────────────
+  let pickerPendingSymbol = null;
+
+  function showWidgetPicker(symbol) {
+    pickerPendingSymbol = symbol;
+    document.getElementById('picker-symbol-label').textContent = symbol;
+
+    const container = document.getElementById('picker-options');
+    container.innerHTML = '';
+    WIDGET_OPTIONS.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.className = 'picker-option';
+      btn.innerHTML = `
+        <div class="picker-option-badge${opt.type === 'F' ? ' badge-f' : ''}">${opt.badge}</div>
+        <div class="picker-option-info">
+          <div class="picker-option-name">${opt.name}</div>
+          <div class="picker-option-desc">${opt.desc}</div>
+        </div>`;
+      btn.addEventListener('click', () => {
+        closeWidgetPicker();
+        confirmAddTicker(symbol, opt.type);
+      });
+      container.appendChild(btn);
+    });
+
+    document.getElementById('widget-picker-overlay').classList.remove('hidden');
+  }
+
+  function closeWidgetPicker() {
+    document.getElementById('widget-picker-overlay').classList.add('hidden');
+    pickerPendingSymbol = null;
+  }
+
+  function confirmAddTicker(symbol, type) {
+    if (type !== state.size) tickerSizes[symbol] = type;
+    displayTickers.push(symbol);
+    const grid = document.getElementById('chart-grid');
+    if (grid.querySelector('.empty-state')) grid.innerHTML = '';
+    grid.appendChild(createWidgetCell(symbol));
+    updateCount();
+    autosave();
+  }
+
   function addTicker(raw) {
     let symbol = raw.trim().toUpperCase();
     if (!symbol) return;
@@ -722,12 +809,7 @@
       setTimeout(() => { input.style.borderColor = ''; }, 800);
       return;
     }
-    displayTickers.push(symbol);
-    const grid = document.getElementById('chart-grid');
-    if (grid.querySelector('.empty-state')) grid.innerHTML = '';
-    grid.appendChild(createWidgetCell(symbol));
-    updateCount();
-    autosave();
+    showWidgetPicker(symbol);
   }
 
   function removeTicker(cell) {
@@ -883,6 +965,12 @@
   // ════════════════════════════════════════════════════════════════════════
   // INIT
   // ════════════════════════════════════════════════════════════════════════
+
+  // Widget picker cancel / outside click
+  document.getElementById('picker-cancel').addEventListener('click', closeWidgetPicker);
+  document.getElementById('widget-picker-overlay').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeWidgetPicker();
+  });
 
   // Close popovers when clicking outside a cell
   document.addEventListener('click', closeAllPopovers);
