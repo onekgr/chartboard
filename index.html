@@ -760,6 +760,7 @@
   let pickerPendingSymbol = null;
 
   function showWidgetPicker(symbol) {
+    try {
     pickerPendingSymbol = symbol;
     document.getElementById('picker-symbol-label').textContent = symbol;
 
@@ -782,6 +783,7 @@
     });
 
     document.getElementById('widget-picker-overlay').classList.remove('hidden');
+    } catch(err) { console.error('showWidgetPicker error:', err); }
   }
 
   function closeWidgetPicker() {
@@ -805,8 +807,16 @@
     if (!symbol.includes(':')) symbol = 'NASDAQ:' + symbol;
     if (displayTickers.includes(symbol)) {
       const input = document.getElementById('new-ticker-input');
+      input.value = symbol;
       input.style.borderColor = 'var(--danger)';
-      setTimeout(() => { input.style.borderColor = ''; }, 800);
+      input.style.color = 'var(--danger)';
+      input.title = 'Already in your watchlist';
+      setTimeout(() => {
+        input.style.borderColor = '';
+        input.style.color = '';
+        input.title = '';
+        input.value = '';
+      }, 1500);
       return;
     }
     showWidgetPicker(symbol);
