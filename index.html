@@ -512,8 +512,14 @@
   ];
 
   const state = { dateRange: '1M', filter: '', size: 'S' };
-  let displayTickers = [...DEFAULT_TICKERS];
-  let tickerSizes = { "NASDAQ:NVDA": "M" }; // per-symbol overrides: { "NASDAQ:NVDA": "L", ... }
+
+  function makeId() { return Math.random().toString(36).slice(2, 9); }
+
+  // Each entry: { id: string, symbol: string, type: 'S'|'M'|'L'|'F' }
+  const DEFAULT_TYPES = { "NASDAQ:NVDA": "M" };
+  let displayTickers = DEFAULT_TICKERS.map(s => ({
+    id: makeId(), symbol: s, type: DEFAULT_TYPES[s] || 'S'
+  }));
 
   // ════════════════════════════════════════════════════════════════════════
   // WIDGET BUILDERS
@@ -598,10 +604,6 @@
   // CELL FACTORY
   // ════════════════════════════════════════════════════════════════════════
 
-  function cellSize(symbol) {
-    return tickerSizes[symbol] || state.size;
-  }
-
   function closeAllPopovers() {
     document.querySelectorAll('.cell-popover.open').forEach(p => {
       p.classList.remove('open');
@@ -609,14 +611,15 @@
     });
   }
 
-  function createWidgetCell(symbol) {
-    const size = cellSize(symbol);
-    const cfg  = SIZE_CONFIG[size];
+  function createWidgetCell(entry) {
+    const { id, symbol, type } = entry;
+    const cfg = SIZE_CONFIG[type];
 
     const cell = document.createElement('div');
     cell.className = 'chart-cell';
+    cell.dataset.id     = id;
     cell.dataset.symbol = symbol;
-    cell.dataset.size   = size;
+    cell.dataset.size   = type;
     cell.style.height   = cfg.cellHeight + 'px';
     if (cfg.colSpan > 1) cell.style.gridColumn = `span ${cfg.colSpan}`;
     if (cfg.rowSpan > 1) cell.style.gridRow    = `span ${cfg.rowSpan}`;
@@ -641,7 +644,7 @@
     sizeGroup.className = 'cell-size-group';
     ['S', 'M', 'L', 'F'].forEach(s => {
       const btn = document.createElement('button');
-      btn.className = 'cell-size-btn' + (s === size ? ' active' : '');
+      btn.className = 'cell-size-btn' + (s === type ? ' active' : '');
       btn.textContent = s;
       btn.title = { S: 'Mini Chart', M: 'Overview', L: 'Advanced Chart', F: 'Fundamentals' }[s];
       btn.addEventListener('click', e => {
@@ -701,20 +704,17 @@
     inner.className = 'tradingview-widget-container__widget';
     inner.style.cssText = 'height:100%;width:100%';
     wrapper.appendChild(inner);
-    wrapper.appendChild({ S: widgetS, M: widgetM, L: widgetL, F: widgetF }[size](symbol));
+    wrapper.appendChild({ S: widgetS, M: widgetM, L: widgetL, F: widgetF }[type](symbol));
     cell.appendChild(wrapper);
 
     return cell;
   }
 
-  function resizeCell(cell, newSize) {
-    const symbol = cell.dataset.symbol;
-    if (newSize === state.size) {
-      delete tickerSizes[symbol]; // back to global default — no need to store it
-    } else {
-      tickerSizes[symbol] = newSize;
-    }
-    cell.replaceWith(createWidgetCell(symbol));
+  function resizeCell(cell, newType) {
+    const entry = displayTickers.find(e => e.id === cell.dataset.id);
+    if (!entry) return;
+    entry.type = newType;
+    cell.replaceWith(createWidgetCell(entry));
     autosave();
   }
 
@@ -739,7 +739,7 @@
       document.getElementById('ticker-count').textContent = '0 charts';
       return;
     }
-    tickers.forEach(s => grid.appendChild(createWidgetCell(s)));
+    tickers.forEach(entry => grid.appendChild(createWidgetCell(entry)));
     updateCount();
   }
 
@@ -749,7 +749,7 @@
   }
 
   function getFilteredTickers() {
-    return state.filter ? displayTickers.filter(t => t.includes(state.filter)) : displayTickers;
+    return state.filter ? displayTickers.filter(e => e.symbol.includes(state.filter)) : displayTickers;
   }
 
   // ════════════════════════════════════════════════════════════════════════
@@ -792,11 +792,11 @@
   }
 
   function confirmAddTicker(symbol, type) {
-    if (type !== state.size) tickerSizes[symbol] = type;
-    displayTickers.push(symbol);
+    const entry = { id: makeId(), symbol, type };
+    displayTickers.push(entry);
     const grid = document.getElementById('chart-grid');
     if (grid.querySelector('.empty-state')) grid.innerHTML = '';
-    grid.appendChild(createWidgetCell(symbol));
+    grid.appendChild(createWidgetCell(entry));
     updateCount();
     autosave();
   }
@@ -805,21 +805,13 @@
     let symbol = raw.trim().toUpperCase();
     if (!symbol) return;
     if (!symbol.includes(':')) symbol = 'NASDAQ:' + symbol;
-    if (displayTickers.includes(symbol)) {
-      const input = document.getElementById('new-ticker-input');
-      input.style.borderColor = 'var(--danger)';
-      input.style.color = 'var(--danger)';
-      setTimeout(() => { input.style.borderColor = ''; input.style.color = ''; }, 1500);
-      return; // leave input value intact so user can see what was rejected
-    }
     document.getElementById('new-ticker-input').value = '';
     showWidgetPicker(symbol);
   }
 
   function removeTicker(cell) {
-    const symbol = cell.dataset.symbol;
-    displayTickers = displayTickers.filter(t => t !== symbol);
-    delete tickerSizes[symbol];
+    const id = cell.dataset.id;
+    displayTickers = displayTickers.filter(e => e.id !== id);
     cell.remove();
     const grid = document.getElementById('chart-grid');
     if (!grid.querySelector('.chart-cell')) {
@@ -897,7 +889,8 @@
       const toIdx   = cells.indexOf(target);
       if (fromIdx < toIdx) target.after(dragSrc);
       else target.before(dragSrc);
-      displayTickers = [...grid.querySelectorAll('.chart-cell')].map(c => c.dataset.symbol);
+      const idOrder = [...grid.querySelectorAll('.chart-cell')].map(c => c.dataset.id);
+      displayTickers = idOrder.map(id => displayTickers.find(e => e.id === id)).filter(Boolean);
       autosave();
     });
   }
@@ -929,9 +922,7 @@
   // ── Persistence ───────────────────────────────────────────────────────
   function autosave() {
     if (!hasConsent) return;
-    localStorage.setItem('cv-state', JSON.stringify(
-      { tickers: displayTickers, size: state.size, tickerSizes }
-    ));
+    localStorage.setItem('cv-state', JSON.stringify({ entries: displayTickers }));
   }
 
   function initPersistence() {
@@ -940,9 +931,15 @@
     if (!saved) return;
     try {
       const data = JSON.parse(saved);
-      if (Array.isArray(data.tickers) && data.tickers.length) displayTickers = data.tickers;
-      if (data.tickerSizes && typeof data.tickerSizes === 'object') tickerSizes = data.tickerSizes;
-      if (data.size && SIZE_CONFIG[data.size]) state.size = data.size;
+      if (Array.isArray(data.entries) && data.entries.length) {
+        displayTickers = data.entries;
+      } else if (Array.isArray(data.tickers) && data.tickers.length) {
+        // backwards compat with old string-array format
+        const sizes = data.tickerSizes || {};
+        displayTickers = data.tickers.map(s => ({
+          id: makeId(), symbol: s, type: sizes[s] || data.size || 'S'
+        }));
+      }
     } catch {}
   }
 
